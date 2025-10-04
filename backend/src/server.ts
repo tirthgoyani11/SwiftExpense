@@ -15,13 +15,16 @@ import userRoutes from './routes/users'
 import companyRoutes from './routes/companies'
 import approvalRoutes from './routes/approvals'
 import analyticsRoutes from './routes/analytics'
+import notificationRoutes from './routes/notifications'
+import uploadRoutes from './routes/upload'
+import activityLogRoutes from './routes/activityLogs'
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler'
 import { notFoundHandler } from './middleware/notFoundHandler'
 
 // Import services
-import { setupSocketIO } from './services/socketService'
+import { setupSocketIO, initializeNotificationService } from './services/socketService'
 
 // Load environment variables
 dotenv.config()
@@ -74,9 +77,13 @@ app.use('/api/users', userRoutes)
 app.use('/api/companies', companyRoutes)
 app.use('/api/approvals', approvalRoutes)
 app.use('/api/analytics', analyticsRoutes)
+app.use('/api/notifications', notificationRoutes)
+app.use('/api/upload', uploadRoutes)
+app.use('/api/activity-logs', activityLogRoutes)
 
 // Setup Socket.IO
 setupSocketIO(io)
+initializeNotificationService(io)
 
 // Error handling middleware (must be last)
 app.use(notFoundHandler)
