@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "cd frontend && npm run build",
+    "build": "cd frontend && yarn install && yarn build",
     "start": "cd backend && npm start",
     "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
-    "install:all": "cd frontend && npm install && cd ../backend && npm install",
-    "vercel-build": "cd frontend && npm install && npm run build"
+    "install:all": "cd frontend && yarn install && cd ../backend && npm install",
+    "vercel-build": "cd frontend && yarn install && yarn build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
