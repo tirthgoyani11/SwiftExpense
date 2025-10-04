@@ -1,40 +1,285 @@
-import { Router } from 'express'
+import { Router, Request, Response } from 'express'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
+import { PrismaClient } from '@prisma/client'
+import { body, validationResult } from 'express-validator'
 
 const router = Router()
+const prisma = new PrismaClient()
 
-// POST /api/auth/register
-router.post('/register', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Register endpoint - Coming Soon',
-    data: null
-  })
+// JWT Secret (in production, use environment variable)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+
+// Login endpoint
+router.post('/login', [
+  body('email').isEmail().normalizeEmail(),
+  body('password').notEmpty()
+], async (req: Request, res: Response) => {
+  try {
+    // Validation
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      })
+    }
+
+    const { email, password } = req.body
+
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        company: true
+      }
+    })
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      })
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'Account is deactivated'
+      })
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash)
+    if (!isValidPassword) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      })
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    )
+
+    // Return user data (excluding password)
+    const userData = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      companyId: user.companyId,
+      company: user.company,
+      avatarUrl: user.avatarUrl,
+      isActive: user.isActive,
+      preferences: user.preferences ? JSON.parse(user.preferences as string) : {}
+    }
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        user: userData,
+        token
+      }
+    })
+
+  } catch (error) {
+    console.error('Login error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    })
+  }
 })
 
-// POST /api/auth/login
-router.post('/login', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Login endpoint - Coming Soon',
-    data: null
-  })
+// Get current user profile
+router.get('/me', async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      })
+    }
+
+    const token = authHeader.substring(7)
+    const decoded = jwt.verify(token, JWT_SECRET) as any
+
+    // Get user from database
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      include: {
+        company: true
+      }
+    })
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'User not found or inactive'
+      })
+    }
+
+    const userData = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      companyId: user.companyId,
+      company: user.company,
+      avatarUrl: user.avatarUrl,
+      isActive: user.isActive,
+      preferences: user.preferences ? JSON.parse(user.preferences as string) : {}
+    }
+
+    res.json({
+      success: true,
+      data: userData
+    })
+
+  } catch (error) {
+    console.error('Profile error:', error)
+    res.status(401).json({
+      success: false,
+      message: 'Invalid token'
+    })
+  }
 })
 
-// GET /api/auth/me
-router.get('/me', (req, res) => {
-  res.json({
-    success: true,
-    message: 'User profile endpoint - Coming Soon',
-    data: null
-  })
+// Register endpoint
+router.post('/register', [
+  body('email').isEmail().normalizeEmail(),
+  body('password').isLength({ min: 8 }),
+  body('firstName').notEmpty().trim(),
+  body('lastName').notEmpty().trim(),
+  body('companyName').notEmpty().trim(),
+], async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      })
+    }
+
+    const { email, password, firstName, lastName, companyName } = req.body
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    })
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'User already exists with this email'
+      })
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12)
+
+    // Create or find company
+    let company = await prisma.company.findFirst({
+      where: { name: companyName }
+    })
+
+    if (!company) {
+      company = await prisma.company.create({
+        data: {
+          name: companyName,
+          currencyCode: 'INR',
+          country: 'India',
+          settings: JSON.stringify({
+            requireReceiptUpload: true,
+            autoApprovalThreshold: 5000,
+            allowMultiCurrency: true
+          })
+        }
+      })
+    }
+
+    // Create user
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: hashedPassword,
+        firstName,
+        lastName,
+        role: 'EMPLOYEE',
+        companyId: company.id,
+        isActive: true,
+        preferences: JSON.stringify({
+          theme: 'light',
+          notifications: true
+        })
+      }
+    })
+
+    // Generate token
+    const token = jwt.sign(
+      { 
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    )
+
+    const userData = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      companyId: user.companyId,
+      company: company,
+      avatarUrl: user.avatarUrl,
+      isActive: user.isActive,
+      preferences: JSON.parse(user.preferences as string)
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'User registered successfully',
+      data: {
+        user: userData,
+        token
+      }
+    })
+
+  } catch (error) {
+    console.error('Registration error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    })
+  }
 })
 
-// POST /api/auth/refresh
-router.post('/refresh', (req, res) => {
+// Logout endpoint (optional - mainly clears token on client)
+router.post('/logout', (req: Request, res: Response) => {
   res.json({
     success: true,
-    message: 'Token refresh endpoint - Coming Soon',
-    data: null
+    message: 'Logged out successfully'
   })
 })
 
