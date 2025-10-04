@@ -320,3 +320,5 @@ datasets/
 .github\instructions\codacy.instructions.md
 
 # End of .gitignore
+
+.vercel
