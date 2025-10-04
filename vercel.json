@@ -1,31 +1,10 @@
 {
-  "version": 2,
   "buildCommand": "cd frontend && yarn install && yarn build",
   "outputDirectory": "frontend/dist",
-  "builds": [
+  "rewrites": [
     {
-      "src": "backend/src/server.ts",
-      "use": "@vercel/node"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "backend/src/server.ts"
-    },
-    {
-      "src": "/health", 
-      "dest": "backend/src/server.ts"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
