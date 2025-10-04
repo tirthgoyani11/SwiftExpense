@@ -1,76 +1,34 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryProvider } from './providers/QueryProvider';
-import { Toaster } from 'react-hot-toast';
-import { useAuthStore } from './store/authStore';
-import LoginPage from './pages/auth/NewLoginPage';
-import RegisterPage from './pages/auth/NewSignupPage';
-import DashboardLayout from './components/layout/DashboardLayout';
-import Dashboard from './pages/Dashboard';
+import { useState } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
 import './App.css'
 
 function App() {
-  const { isAuthenticated } = useAuthStore();
+  const [count, setCount] = useState(0)
 
   return (
-    <QueryProvider>
-      <Router>
-        <div className="min-h-screen bg-odoo-gray-50">
-          <Routes>
-            {/* Public Routes */}
-            <Route 
-              path="/login" 
-              element={!isAuthenticated ? <LoginPage /> : <Navigate to="/dashboard" replace />} 
-            />
-            <Route 
-              path="/register" 
-              element={!isAuthenticated ? <RegisterPage /> : <Navigate to="/dashboard" replace />} 
-            />
-            
-            {/* Protected Routes */}
-            <Route
-              path="/dashboard/*"
-              element={isAuthenticated ? <DashboardLayout /> : <Navigate to="/login" replace />}
-            >
-              <Route index element={<Dashboard />} />
-            </Route>
-            
-            {/* Default Route */}
-            <Route 
-              path="/" 
-              element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} 
-            />
-          </Routes>
-        </div>
-        
-        {/* Toast Notifications */}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#FFFFFF',
-              color: '#343A40',
-              border: '1px solid #E9ECEF',
-              borderRadius: '6px',
-              fontSize: '14px',
-              fontWeight: '500',
-            },
-            success: {
-              iconTheme: {
-                primary: '#28A745',
-                secondary: '#FFFFFF',
-              },
-            },
-            error: {
-              iconTheme: {
-                primary: '#DC3545',
-                secondary: '#FFFFFF',
-              },
-            },
-          }}
-        />
-      </Router>
-    </QueryProvider>
+    <>
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
+      </div>
+      <h1>Vite + React</h1>
+      <div className="card">
+        <button onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        <p>
+          Edit <code>src/App.tsx</code> and save to test HMR
+        </p>
+      </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
+    </>
   )
 }
 
